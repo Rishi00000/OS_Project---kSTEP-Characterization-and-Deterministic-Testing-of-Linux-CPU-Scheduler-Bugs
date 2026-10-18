@@ -1,0 +1,17 @@
+Method 1: Direct Kernel Boot (The Fastest Developer Method)
+If you are modifying the kernel code and compiling it on your main machine, you do not need to build a whole operating system installer. Virtualization tools like QEMU allow you to pass your newly compiled kernel file directly into a blank VM.
+You can launch a virtual machine from your command line using a single command:
+bash
+qemu-system-x86_64 -kernel arch/x86/boot/bzImage -hda my-rootfs.img -append "root=/dev/sda console=ttyS0" --enable-kvm -m 2G -nographic
+Use code with caution.
+• -kernel: Points directly to your compiled custom kernel binary (bzImage).
+• -hda: Connects a simple virtual hard disk image that holds basic programs (like a file explorer or a command shell).
+• --enable-kvm: Uses your hardware's built-in virtualization to make the kernel boot in less than two seconds.
+
+
+Method 2: Standard Installation (The Traditional Method)
+If you prefer a graphic interface using tools like VirtualBox or VMware, you can modify the system from the inside out:
+1. Install a standard Linux distribution (like Ubuntu or Arch Linux) inside your VM.
+2. Download the kernel source code inside that virtual operating system.
+3. Make your modifications, compile the source code, and run sudo make install.
+4. Restart the virtual machine and select your modified kernel from the boot menu
