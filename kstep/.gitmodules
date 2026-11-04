@@ -1,0 +1,12 @@
+[submodule "results"]
+	path = results
+	url = https://github.com/kstep-dev/results.git
+	branch = main
+[submodule "docs/study"]
+	path = docs/study
+	url = https://github.com/kstep-dev/study.git
+	branch = master
+[submodule "website"]
+	path = website
+	url = https://github.com/kstep-dev/kstep-dev.github.io.git
+	branch = main

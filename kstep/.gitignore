@@ -1,0 +1,12 @@
+# Python
+__pycache__
+
+# clangd
+.cache
+
+# Build artifacts
+/build/
+/fuzz
+
+# Rust
+/target

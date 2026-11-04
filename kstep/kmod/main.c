@@ -1,0 +1,60 @@
+#include <generated/utsrelease.h>
+#include <linux/module.h>
+#include <linux/reboot.h>
+
+#include "driver.h"
+#include "internal.h"
+
+struct kstep_driver *kstep_driver = NULL;
+
+static char driver_name[DRIVER_NAME_LEN] = "default";
+module_param_string(driver, driver_name, DRIVER_NAME_LEN, 0644);
+
+static int __init kstep_main(void) {
+  kstep_io_init();
+
+  TRACE_INFO("Starting %s on Linux %s", driver_name, UTS_RELEASE);
+  kstep_driver = kstep_sym_init(driver_name);
+  kstep_cpu_init();
+
+  // Isolate the CPUs to avoid interference
+  kstep_prealloc_kworkers();
+  kstep_disable_workqueue();
+  kstep_move_kthreads();
+
+  // Run userspace programs when we know the system is ready
+  kstep_task_init();
+  kstep_cgroup_init();
+  kstep_trace_init(); // the group-alloc hook also sets min_vruntime
+  kstep_driver->setup();
+  kstep_topo_print();
+
+  // Control timer ticks and clock
+  kstep_tick_init();
+  kstep_jiffies_init();
+  kstep_sched_clock_init();
+
+  kstep_sched_feat_disable("NI_RANDOM");
+
+  // Reset the scheduler state to initial state, before the driver creates anything: a task is
+  // reset as it is created (kstep_task_create) and runnable from then on, in setup as in run.
+  kstep_reset_runqueues();
+  kstep_reset_cpumask();
+  kstep_reset_tasks();
+  kstep_reset_dl_server();
+
+  TRACE_INFO("Running driver %s", kstep_driver->name);
+
+  kstep_driver->run();
+
+  TRACE_INFO("Exiting driver %s on Linux %s", kstep_driver->name, UTS_RELEASE);
+
+  kernel_restart(NULL);
+
+  return 0;
+}
+module_init(kstep_main);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Shawn Zhong");
+MODULE_DESCRIPTION("kSTEP");

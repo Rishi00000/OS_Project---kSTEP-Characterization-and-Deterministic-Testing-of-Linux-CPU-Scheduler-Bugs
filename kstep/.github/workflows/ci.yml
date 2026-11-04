@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "0 0 * * 0" # Every week
+
+env:
+  PACKAGES_X86_64: qemu-system-x86 libelf-dev
+  PACKAGES_AARCH64: qemu-system-arm libelf-dev
+
+jobs:
+  deps:
+    name: Deps (${{ matrix.arm && 'aarch64' || 'x86_64' }})
+    strategy:
+      matrix:
+        arm: [false, true]
+    runs-on: ${{ matrix.arm && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache apt packages
+        uses: ./.github/actions/apt-deps
+        with:
+          packages: ${{ matrix.arm && env.PACKAGES_AARCH64 || env.PACKAGES_X86_64 }}
+
+      # target/ and the registry, shared with the test jobs (same key), saved only here
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: kstep
+      - name: Build Rust
+        run: cargo build --workspace --release --locked
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --release --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --release --locked
+
+  test:
+    needs: deps
+    name: ${{ matrix.fuzz && 'Fuzz' || 'Run' }} ${{ matrix.version }} (${{ matrix.arm && 'aarch64' || 'x86_64' }})
+    strategy:
+      matrix:
+        include:
+          - version: v7.0  # latest
+          - version: v7.0
+            arm: true
+          - version: v6.18 # 2025 LTS
+          - version: v6.12 # 2024 LTS
+          - version: v6.6  # 2023 LTS
+          - version: v6.1  # 2022 LTS
+          - version: v5.15 # 2021 LTS
+          - version: v6.18
+            fuzz: true
+    runs-on: ${{ matrix.arm && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: kstep
+          save-if: false
+
+      - name: Build kstep CLI
+        run: cargo build --release --locked -p kstep
+
+      - name: Install deps
+        uses: ./.github/actions/apt-deps
+        with:
+          packages: ${{ matrix.arm && env.PACKAGES_AARCH64 || env.PACKAGES_X86_64 }}
+          install: true
+
+      - name: Build Linux
+        uses: ./.github/actions/build-linux
+        with:
+          version: ${{ matrix.version }}
+          cov: ${{ matrix.fuzz }}
+
+      - name: Build kSTEP
+        run: ./kstep.sh build ${{ matrix.version }}
+
+      # GitHub's x86_64 runners have nested virtualisation, but /dev/kvm is root-only; the arm
+      # runners have no /dev/kvm, and QEMU falls back to TCG
+      - name: Enable KVM
+        run: '[ -e /dev/kvm ] && sudo chmod 666 /dev/kvm || true'
+
+      - name: "[Run] A cli session"
+        if: ${{ ! matrix.fuzz }}
+        timeout-minutes: 2
+        run: printf 'create 2\ntick 5\npolicy-rt 1 fifo 50\ntick 5\n' | ./kstep.sh run ${{ matrix.version }}
+
+      - name: "[Run] Show the driver's records"
+        if: ${{ ! matrix.fuzz }}
+        run: cat results/latest/kstep.jsonl
+
+      - name: Show the kernel log
+        if: ${{ failure() }}
+        run: cat results/latest/kernel.log
+
+      - name: "[Fuzz] Build the fuzzer"
+        if: ${{ matrix.fuzz }}
+        run: cargo build --release --locked -p kstep-fuzz
