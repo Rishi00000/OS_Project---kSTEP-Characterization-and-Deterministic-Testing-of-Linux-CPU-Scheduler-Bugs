@@ -1,3 +1,0 @@
-obj-m := kmod.o
-kmod-y := $(patsubst $(src)/%.c,%.o,$(shell find $(src) -name '*.c'))
-ccflags-y := -I$(srctree) -I$(src) -std=gnu11 -Werror -Wno-declaration-after-statement

@@ -1,6 +1,0 @@
-# Kernel console: the virt machine's PL011 (ttyAMA0), which also has an earlycon.
-CONFIG_SERIAL_AMBA_PL011=y
-CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
-# virtio console ports over virtio-mmio (QEMU -device virtio-serial-device): no PCI host needed
-# on virt, and no PCI enumeration at boot.
-CONFIG_VIRTIO_MMIO=y
