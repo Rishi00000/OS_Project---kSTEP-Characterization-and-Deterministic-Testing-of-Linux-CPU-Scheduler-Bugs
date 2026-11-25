@@ -1,0 +1,14 @@
+{
+    "files.exclude": {
+        // python cache
+        "**/__pycache__": true,
+        // build artifacts
+        "**/*.cmd": true,
+    },
+    "files.associations": {
+        "**/linux/config.*": "makefile",
+    },
+    "search.exclude": {
+        "kmod/build": true,
+    },
+}

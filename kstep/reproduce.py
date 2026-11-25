@@ -1,0 +1,183 @@
+#!/usr/bin/env -S uv run --script
+
+import argparse
+from dataclasses import dataclass
+from pathlib import Path
+
+from checkout import Linux, checkout
+from run import Driver, make_kstep, make_linux, run_qemu
+from scripts import (
+    PROJ_DIR,
+    ResultDir,
+    TermColor,
+    system,
+)
+
+
+@dataclass(frozen=True)
+class Bug:
+    name: str
+    # Commit-based: buggy = fix~1, fixed = fix
+    fix: str | None = None
+    # Patch-based: buggy = ref, fixed = ref + patch
+    ref: str | None = None
+    patch: str | None = None
+    # Extra kernel config fragment to merge
+    config: Path | None = None
+    # Driver options
+    num_cpus: int = 2
+    mem_mb: int = 512
+    plot_format: str | None = None
+
+    @property
+    def driver(self) -> Driver:
+        return Driver(name=self.name, num_cpus=self.num_cpus, mem_mb=self.mem_mb)
+
+    @property
+    def linux(self) -> list[Linux]:
+        if self.fix:
+            return [
+                Linux(name="buggy", ref=f"{self.fix}~1", config=self.config),
+                Linux(name="fixed", ref=self.fix, config=self.config),
+            ]
+        elif self.ref and self.patch:
+            patch_path = PROJ_DIR / "linux" / self.patch
+            return [
+                Linux(name="buggy", ref=self.ref, config=self.config),
+                Linux(
+                    name="fixed",
+                    ref=self.ref,
+                    patch=patch_path,
+                    config=self.config,
+                ),
+            ]
+        else:
+            raise ValueError(
+                f"Bug '{self.name}': specify either 'fix' or 'ref'+'patch'"
+            )
+
+
+# fmt: off
+BUGS = [
+    Bug("sync_wakeup", ref="v6.14", patch="sync_wakeup.patch", num_cpus=3, plot_format="curr_task"),
+    Bug("vruntime_overflow", fix="bbce3de72be56e4b5f68924b7da9630cc89aa1a8", plot_format="curr_task"),
+    Bug("freeze", fix="cd9626e9ebc77edec33023fe95dab4b04ffc819d", plot_format="curr_task"),
+    Bug("extra_balance", fix="6d7e4782bcf549221b4ccfffec2cf4d1a473f1a3", num_cpus=5, plot_format="lb_nr_running"),
+    Bug("util_avg", fix="17e3e88ed0b6318fde0d1c14df1a804711cab1b5", plot_format="val"),
+    Bug("long_balance", fix="2feab2492deb2f14f9675dd6388e9e2bf669c27a", num_cpus=3, mem_mb=4096, plot_format="rebalance"),
+    Bug("lag_vruntime", fix="5068d84054b766efe7c6202fc71b2350d1c326f1", plot_format="min_vruntime"),
+    Bug("rt_runtime_toggle", fix="9b58e976b3b391c0cf02e038d53dd0478ed3013c", plot_format="curr_task"),
+    Bug("uclamp_inversion", fix="0213b7083e81f4acd69db32cb72eb4e5f220329a", plot_format="val"),
+    Bug("h_nr_runnable", fix="3429dd57f0deb1a602c2624a1dd7c4c11b6c4734", plot_format="val"),
+    Bug("vlag_overflow", fix="1560d1f6eb6b398bddd80c16676776c0325fe5fe", num_cpus=3),
+    Bug("throttled_limbo_list", fix="956dfda6a70885f18c0f8236a461aa2bc4f556ad", num_cpus=3),
+    Bug("over_schedule", fix="d4ac164bde7a12ec0a238a7ead5aa26819bbb1c1"),
+    Bug("slice_update", fix="2f2fc17bab0011430ceb6f2dc1959e7d1f981444"),
+    Bug("avg_vruntime_ceil", fix="650cad561cce04b62a8c8e0446b685ef171bc3bb"),
+    Bug("min_deadline", fix="8dafa9d0eb1a1550a0f4d462db9354161bc51e0c"),
+    Bug("zero_vruntime", fix="b3d99f43c72b56cf7a104a364e7fb34b0702828b"),
+]
+BUGS_EXTRA = [
+    Bug("even_idle_cpu", ref="v6.17", patch="even_idle_cpu.patch", num_cpus=5, plot_format="lb_nr_running"),
+
+    Bug(
+        "local_group_imbalance",
+        ref="c369299895a591d96745d6492d4888259b004a9e",
+        patch="fix_local_group_imbalanced.patch",
+        num_cpus=5,
+        plot_format="lb_nr_running",
+    ),
+
+    Bug(
+        "util_avg_jump",
+        ref="c369299895a591d96745d6492d4888259b004a9e",
+        patch="fix_util_avg_jump.patch",
+        num_cpus=2,
+        plot_format="val",
+    )
+]
+
+def step(prefix: str, message: str):
+    print(f"{TermColor.GREEN}{prefix}{TermColor.RESET}: {message}", flush=True)
+
+
+def plot_data(python_script: str, driver: str):
+    step(driver, "Plotting data")
+    system(f"{PROJ_DIR}/scripts/plot_{python_script}.py {driver}")
+
+
+def reproduce(linux: Linux, driver: Driver, rebuild_linux: bool):
+    kernel = f"{driver.name}_{linux.name}"
+
+    step(kernel, "Checkout Linux")
+    checkout(linux.ref, kernel=kernel, patch=linux.patch, tarball=True)
+
+    if rebuild_linux:
+        step(kernel, "Build Linux")
+        make_linux(kernel=kernel, config=linux.config, log=True)
+
+    step(kernel, "Build kSTEP")
+    make_kstep(kernel=kernel, log=True)
+
+    result_dir = ResultDir.create(f"repro_{driver.name}/{linux.name}")
+    step(kernel, "Run kSTEP")
+    step(kernel, f"QEMU Log: {result_dir.log}")
+    step(kernel, f"kSTEP Output: {result_dir.output}")
+    run_qemu(kernel=kernel, driver=driver, result_dir=result_dir, headless=True)
+
+
+def main(bug: Bug, runs: list[str], rebuild_linux: bool):
+    print("=" * 80, flush=True)
+    print(f" {bug.driver.name} ".center(80, "="), flush=True)
+    print("=" * 80, flush=True)
+
+    linux_map = {linux.name: linux for linux in bug.linux}
+    for r in runs:
+        if r == "plot":
+            continue
+        linux = linux_map.get(r, Linux(name=r, ref=r))
+        reproduce(linux, bug.driver, rebuild_linux)
+
+    if "plot" in runs:
+        if bug.plot_format:
+            plot_data(bug.plot_format, bug.driver.name)
+        else:
+            print(f"Plot format not specified for bug '{bug.driver.name}'")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "name",
+        type=str,
+        default="all",
+        choices=["all", "ae", *[bug.driver.name for bug in BUGS + BUGS_EXTRA]],
+        help="The name of the bug to reproduce, or 'all' to reproduce all BUGS.",
+    )
+    parser.add_argument(
+        "--run",
+        type=str,
+        default=["buggy", "fixed", "plot"],
+        nargs="+",
+    )
+    parser.add_argument(
+        "--rebuild_linux",
+        action="store_true",
+        default=False,
+        help="Rebuild the Linux kernel before reproducing.",
+    )
+    args = parser.parse_args()
+
+    if args.name == "all":
+        selected_bugs = BUGS
+    elif args.name == "ae":
+        selected_bugs = BUGS[: 7] + BUGS_EXTRA[: 1]
+    else:
+        bug = next((bug for bug in BUGS + BUGS_EXTRA if bug.driver.name == args.name), None)
+        if not bug:
+            raise ValueError(f"Bug '{args.name}' not found.")
+        selected_bugs = [bug]
+
+    print(f"running {len(selected_bugs)} bug(s)")
+    for bug in selected_bugs:
+        main(bug=bug, runs=args.run, rebuild_linux=args.rebuild_linux)

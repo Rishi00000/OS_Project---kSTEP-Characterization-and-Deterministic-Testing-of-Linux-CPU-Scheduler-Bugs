@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""
+Plot min_vruntime and avg_vruntime for CPU 2 over time from log files
+"""
+
+import argparse
+
+import matplotlib.pyplot as plt
+from utils import ResultDir
+from parse_log import parse_jsonl
+from plot_utils import save_fig
+
+
+def plot_min_vruntime(buggy_df, fixed_df):
+    fig, ax1 = plt.subplots(figsize=(1.95, 1.95))
+
+    # Top subplot: min_vruntime using scatter
+    ax1.scatter(
+        buggy_df["timestamp"],
+        buggy_df["val"],
+        s=26,
+        marker="o",
+        facecolor="#A72703",
+        edgecolor="black",
+        linewidth=0.5,
+        label="Buggy",
+        alpha=0.95,
+        zorder=2,
+    )
+    ax1.scatter(
+        fixed_df["timestamp"],
+        fixed_df["val"],
+        s=60,
+        marker="s",
+        facecolor="none",
+        edgecolor="#BBC863",
+        linewidth=1.8,
+        label="Fixed",
+        alpha=0.95,
+        zorder=3,
+    )
+    # ax1.set_xlim(left = 5000)
+    ax1.set_ylabel("min_vruntime", fontsize=13)
+    # ax1.set_title(f'Lag_Vruntime', fontsize=13)
+    ax1.grid(True, alpha=0.3)
+    # show end x-axis label
+    # ax1.set_xlim(0, max(max(timestamps_buggy), max(timestamps_fixed)) + 1)
+    ax1.set_xticks([0, 5, 10])
+    ax1.legend(
+        handlelength=0.5,
+        handletextpad=0.5,
+    )
+    ax1.tick_params(axis="both", which="major", labelsize=13)
+    ax1.set_xlabel("Time (ms)", fontsize=13)
+    return fig
+
+
+def main(driver: str):
+    buggy_df = parse_jsonl(ResultDir(f"repro_{driver}/buggy").output, "min_vruntime")
+    fixed_df = parse_jsonl(ResultDir(f"repro_{driver}/fixed").output, "min_vruntime")
+
+    fig = plot_min_vruntime(buggy_df, fixed_df)
+    save_fig(fig, driver)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("driver", type=str, default="lag_vruntime", nargs="?")
+    args = parser.parse_args()
+    main(args.driver)
