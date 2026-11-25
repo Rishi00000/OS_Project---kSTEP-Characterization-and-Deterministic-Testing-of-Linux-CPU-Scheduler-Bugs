@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["matplotlib==3.10.7", "pandas==2.3.3"]
-# ///
+#!/usr/bin/env python3
 
 import argparse
 from pathlib import Path
@@ -12,9 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
+from utils import ResultDir
 from matplotlib import colors
+from parse_log import parse_jsonl
 from plot_utils import save_fig
-from utils import kstep_log, parse_jsonl
 
 
 def parse_curr_task(path: Path, type: str) -> pd.DataFrame:
@@ -176,8 +173,8 @@ def main(driver: str):
         title_fixed = "Fixed"
 
     fig = plot_curr_task(
-        output_buggy=kstep_log(f"repro_{driver}/buggy"),
-        output_fixed=kstep_log(f"repro_{driver}/fixed"),
+        output_buggy=ResultDir(f"repro_{driver}/buggy").output,
+        output_fixed=ResultDir(f"repro_{driver}/fixed").output,
         title_buggy=title_buggy,
         title_fixed=title_fixed,
         color_map=COLOR_MAPS.get(driver, {}),

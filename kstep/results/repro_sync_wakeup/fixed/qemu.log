@@ -1,0 +1,217 @@
+c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
+Booting from ROM..c[?7l[2J[    0.000000] Linux version 6.14.0-sync_wakeup_fixed (rishi@Lenovo-LOQ) (gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #1 SMP 1970-01-01
+[    0.000000] Command line: rw nokaslr loglevel=7 sched_verbose isolcpus=nohz,managed_irq,1-2 irqaffinity=0 rcu_nocbs=1-2 nohz_full=1-2 init=/user panic=-1 console=ttyS0 tsc=nowatchdog -- driver=sync_wakeup
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x000000001ffdffff] usable
+[    0.000000] BIOS-e820: [mem 0x000000001ffe0000-0x000000001fffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000feffc000-0x00000000feffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff] reserved
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000001] kvm-clock: using sched offset of 124279718 cycles
+[    0.000003] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000007] tsc: Detected 2687.998 MHz processor
+[    0.000536] last_pfn = 0x1ffe0 max_arch_pfn = 0x400000000
+[    0.000538] x86/PAT: PAT support disabled because CONFIG_X86_PAT is disabled in the kernel.
+[    0.000544] x86/PAT: Configuration [0-7]: WB  WT  UC- UC  WB  WT  UC- UC  
+[    0.000553] Using GB pages for direct mapping
+[    0.000683] RAMDISK: [mem 0x1ffa9000-0x1ffdffff]
+[    0.000684] ACPI: Early table checksum verification disabled
+[    0.000687] ACPI: RSDP 0x00000000000F5290 000014 (v00 BOCHS )
+[    0.000700] ACPI: RSDT 0x000000001FFE1D46 000034 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000706] ACPI: FACP 0x000000001FFE1BEA 000074 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000712] ACPI: DSDT 0x000000001FFE0040 001BAA (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000716] ACPI: FACS 0x000000001FFE0000 000040
+[    0.000718] ACPI: APIC 0x000000001FFE1C5E 000088 (v03 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000721] ACPI: HPET 0x000000001FFE1CE6 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000724] ACPI: WAET 0x000000001FFE1D1E 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.000726] ACPI: Reserving FACP table memory at [mem 0x1ffe1bea-0x1ffe1c5d]
+[    0.000727] ACPI: Reserving DSDT table memory at [mem 0x1ffe0040-0x1ffe1be9]
+[    0.000728] ACPI: Reserving FACS table memory at [mem 0x1ffe0000-0x1ffe003f]
+[    0.000728] ACPI: Reserving APIC table memory at [mem 0x1ffe1c5e-0x1ffe1ce5]
+[    0.000729] ACPI: Reserving HPET table memory at [mem 0x1ffe1ce6-0x1ffe1d1d]
+[    0.000729] ACPI: Reserving WAET table memory at [mem 0x1ffe1d1e-0x1ffe1d45]
+[    0.000770] No NUMA configuration found
+[    0.000770] Faking a node at [mem 0x0000000000000000-0x000000001ffdffff]
+[    0.000773] NODE_DATA(0) allocated [mem 0x1ffa6640-0x1ffa8fff]
+[    0.000789] Zone ranges:
+[    0.000789]   DMA32    [mem 0x0000000000001000-0x000000001ffdffff]
+[    0.000791]   Normal   empty
+[    0.000792] Movable zone start for each node
+[    0.000793] Early memory node ranges
+[    0.000793]   node   0: [mem 0x0000000000001000-0x000000000009efff]
+[    0.000794]   node   0: [mem 0x0000000000100000-0x000000001ffdffff]
+[    0.000795] Initmem setup node 0 [mem 0x0000000000001000-0x000000001ffdffff]
+[    0.001571] On node 0, zone DMA32: 1 pages in unavailable ranges
+[    0.021209] On node 0, zone DMA32: 97 pages in unavailable ranges
+[    0.021244] On node 0, zone DMA32: 32 pages in unavailable ranges
+[    0.021303] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.021382] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    0.021385] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.021387] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.021387] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.021388] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.021388] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.021392] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.021393] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    0.021397] TSC deadline timer available
+[    0.021399] CPU topo: Max. logical packages:   1
+[    0.021400] CPU topo: Max. logical dies:       1
+[    0.021400] CPU topo: Max. dies per package:   1
+[    0.021402] CPU topo: Max. threads per core:   1
+[    0.021403] CPU topo: Num. cores per package:     3
+[    0.021403] CPU topo: Num. threads per package:   3
+[    0.021403] CPU topo: Allowing 3 present CPUs plus 0 hotplug CPUs
+[    0.021425] kvm-guest: APIC: eoi() replaced with kvm_guest_apic_eoi_write()
+[    0.021443] kvm-guest: KVM setup pv remote TLB flush
+[    0.021454] kvm-guest: setup PV sched yield
+[    0.021458] [mem 0x20000000-0xfeffbfff] available for PCI devices
+[    0.021459] Booting paravirtualized kernel on KVM
+[    0.021460] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.022579] setup_percpu: NR_CPUS:64 nr_cpumask_bits:3 nr_cpu_ids:3 nr_node_ids:1
+[    0.026804] percpu: Embedded 51 pages/cpu s169944 r8192 d30760 u524288
+[    0.026884] Kernel command line: rw nokaslr loglevel=7 sched_verbose isolcpus=nohz,managed_irq,1-2 irqaffinity=0 rcu_nocbs=1-2 nohz_full=1-2 init=/user panic=-1 console=ttyS0 tsc=nowatchdog -- driver=sync_wakeup
+[    0.026924] Unknown kernel command line parameters "isolcpus=nohz,managed_irq,1-2 rcu_nocbs=1-2 nohz_full=1-2", will be passed to user space.
+[    0.026934] random: crng init done
+[    0.026935] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    0.026985] Dentry cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.027004] Inode-cache hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.027075] Fallback order for Node 0: 0 
+[    0.027078] Built 1 zonelists, mobility grouping on.  Total pages: 130942
+[    0.027079] Policy zone: DMA32
+[    0.027080] mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+[    0.028019] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=3, Nodes=1
+[    0.028032] ftrace: allocating 13405 entries in 53 pages
+[    0.033295] ftrace: allocated 53 pages with 4 groups
+[    0.034036] rcu: Hierarchical RCU implementation.
+[    0.034038] rcu: 	RCU restricting CPUs from NR_CPUS=64 to nr_cpu_ids=3.
+[    0.034040] 	Rude variant of Tasks RCU enabled.
+[    0.034040] 	Tracing variant of Tasks RCU enabled.
+[    0.034041] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.034042] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=3
+[    0.034047] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=3.
+[    0.034049] RCU Tasks Trace: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=3.
+[    0.034488] NR_IRQS: 4352, nr_irqs: 64, preallocated irqs: 16
+[    0.034716] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.034866] printk: legacy console [ttyS0] enabled
+[    0.239453] ACPI: Core revision 20240827
+[    0.240923] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[    0.243597] APIC: Switch to symmetric I/O mode setup
+[    0.244896] kvm-guest: APIC: send_IPI_mask() replaced with kvm_send_ipi_mask()
+[    0.247070] kvm-guest: APIC: send_IPI_mask_allbutself() replaced with kvm_send_ipi_mask_allbutself()
+[    0.249926] kvm-guest: setup PV IPIs
+[    0.253538] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[    0.255503] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x26bef4a354e, max_idle_ns: 440795213564 ns
+[    0.258923] Calibrating delay loop (skipped) preset value.. 5375.99 BogoMIPS (lpj=2687998)
+[    0.261522] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[    0.261924] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[    0.262939] Spectre V2 : User space: Vulnerable
+[    0.263924] Speculative Store Bypass: Vulnerable
+[    0.264979] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.265924] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.266924] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.268925] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.269926] x86/fpu: Enabled xstate features 0x7, context size is 832 bytes, using 'compacted' format.
+[    0.272018] Freeing SMP alternatives memory: 12K
+[    0.272928] pid_max: default: 32768 minimum: 301
+[    0.273952] Mount-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.274927] Mountpoint-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.277144] smpboot: CPU0: 12th Gen Intel(R) Core(TM) i5-12450HX (family: 0x6, model: 0x97, stepping: 0x2)
+[    0.278047] Performance Events: unsupported p6 CPU model 151 no PMU driver, software events only.
+[    0.279009] signal: max sigframe size: 1360
+[    0.279959] rcu: Hierarchical SRCU implementation.
+[    0.280931] rcu: 	Max phase no-delay instances is 400.
+[    0.282029] smp: Bringing up secondary CPUs ...
+[    0.282989] smpboot: x86: Booting SMP configuration:
+[    0.283932] .... node  #0, CPUs:      #1 #2
+[    0.287359] smp: Brought up 1 node, 3 CPUs
+[    0.288931] smpboot: Total of 3 processors activated (16127.98 BogoMIPS)
+[    0.289976] root domain span: 0-2
+[    0.290895] Memory: 498376K/523768K available (4976K kernel code, 976K rwdata, 1288K rodata, 952K init, 788K bss, 22772K reserved, 0K cma-reserved)
+[    0.291464] devtmpfs: initialized
+[    0.292076] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.293117] thermal_sys: Registered thermal governor 'step_wise'
+[    0.293129] cpuidle: using governor ladder
+[    0.294989] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    0.296725] ACPI: Added _OSI(Module Device)
+[    0.296942] ACPI: Added _OSI(Processor Device)
+[    0.298933] ACPI: Added _OSI(3.0 _SCP Extensions)
+[    0.300931] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.302950] ACPI Error: AE_BAD_PARAMETER, During Region initialization (20240827/tbxfload-52)
+[    0.304931] ACPI: Unable to load the System Description Tables
+[    0.306930] ACPI Error: Could not remove SCI handler (20240827/evmisc-251)
+[    0.310324] clocksource: Switched to clocksource kvm-clock
+[    0.312121] pnp: PnP ACPI: disabled
+[    0.313863] Unpacking initramfs...
+[    0.313873] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x26bef4a354e, max_idle_ns: 440795213564 ns
+[    0.315726] Freeing initrd memory: 220K
+[    0.319147] platform rtc_cmos: registered platform RTC device (no PNP device found)
+[    0.324081] workingset: timestamp_bits=56 max_order=17 bucket_order=0
+[    0.327187] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
+[    0.329834] serial8250: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[    0.333165] serial8250: ttyS1 at I/O 0x2f8 (irq = 3, base_baud = 115200) is a 16550A
+[    0.336115] serial8250: ttyS2 at I/O 0x3e8 (irq = 4, base_baud = 115200) is a 16550A
+[    0.339614] IPI shorthand broadcast: enabled
+[    0.341821] sched_clock: Marking stable (123009101, 218197342)->(378099592, -36893149)
+[    0.350057] Freeing unused kernel image (initmem) memory: 952K
+[    0.351250] Write protecting the kernel read-only data: 8192k
+[    0.353514] Freeing unused kernel image (text/rodata gap) memory: 1164K
+[    0.358320] Freeing unused kernel image (rodata/data gap) memory: 760K
+[    0.360912] Run /user as init process
+Loading kmod.ko with params: driver=sync_wakeup isolcpus=nohz,managed_irq,1-2 rcu_nocbs=1-2 nohz_full=1-2 
+[    0.375824] kmod: loading out-of-tree module taints kernel.
+[    0.378047] kmod: unknown parameter 'isolcpus' ignored
+[    0.379017] kmod: unknown parameter 'rcu_nocbs' ignored
+[    0.380158] kmod: unknown parameter 'nohz_full' ignored
+[    0.381922] [92mStarting sync_wakeup on Linux 6.14.0-sync_wakeup_fixed[0m
+[    0.393888] [92mDisabled workqueue on CPU 1[0m
+[    0.394891] [92mDisabled workqueue on CPU 2[0m
+[    0.396818] [92mMoved kthreads to CPU 0[0m
+[    0.397666] [92mWriting /sys/fs/cgroup//cgroup.subtree_control: +cpu +cpuset[0m
+[    0.408989] [92mTraced init_tg_cfs_entry with on_sched_group_alloc[0m
+[    0.410502] [92mTask created with pid 52[0m
+[    0.412502] [92mTask 52 is ready[0m
+[    0.413187] [92mPinned task 52 to CPUs 1-2[0m
+[    0.415133] [92mkthread_create: name=waker pid=53[0m
+[    0.417158] [92mkthread_bind: pid=53 mask=1[0m
+[    0.419417] [92mkthread_start: pid=53[0m
+[    0.421279] [92mkthread_yield: pid=53[0m
+[    0.423352] [92mkthread_create: name=wakee pid=54[0m
+[    0.425483] [92mkthread_bind: pid=54 mask=2[0m
+[    0.427613] [92mkthread_start: pid=54[0m
+[    0.429797] [92mkthread_block: pid=54[0m
+[    0.431595] [92mkthread_bind: pid=54 mask=1-2[0m
+[    0.433703] Topology levels:
+[    0.434290] - SMT  |    0 |    1 |    2 | SHARE_CPUCAPACITY, SHARE_LLC
+[    0.435623] - CLS  |    0 |    1 |    2 | CLUSTER, SHARE_LLC
+[    0.436788] - MC   |  0-2 |  0-2 |  0-2 | SHARE_LLC
+[    0.437765] - PKG  |  0-2 |  0-2 |  0-2 | 
+[    0.438468] - NODE |  0-2 |  0-2 |  0-2 | 
+[    0.439585] Sched domains:
+[    0.440156] - MC[0]: mask=0-2, groups={0: 1024, 1: 1024, 2: 1024}, flags=BALANCE_NEWIDLE, BALANCE_EXEC, BALANCE_FORK, WAKE_AFFINE, SHARE_LLC, PREFER_SIBLING
+[    0.443875] - MC[1]: mask=0-2, groups={1: 1024, 2: 1024, 0: 1024}, flags=BALANCE_NEWIDLE, BALANCE_EXEC, BALANCE_FORK, WAKE_AFFINE, SHARE_LLC, PREFER_SIBLING
+[    0.447659] - MC[2]: mask=0-2, groups={2: 1024, 0: 1024, 1: 1024}, flags=BALANCE_NEWIDLE, BALANCE_EXEC, BALANCE_FORK, WAKE_AFFINE, SHARE_LLC, PREFER_SIBLING
+[    0.450417] CPU scales:
+[    0.450917] - CPU 0: cap=1024 freq=1024
+[    0.451784] - CPU 1: cap=1024 freq=1024
+[    0.452557] - CPU 2: cap=1024 freq=1024
+[    0.453365] [92mDisabled timer ticks on CPU 1[0m
+[    0.454385] [92mDisabled timer ticks on CPU 2[0m
+[    0.455581] [92mDisabled jiffies update[0m
+[   10.000000] [92mMocked sched clock[0m
+[   10.000000] [92mReset runqueues state[0m
+[   10.000000] [92mReset cpumask[0m
+[   10.000000] [92mReset tasks state[0m
+[   10.000000] [92mRunning driver sync_wakeup[0m
+[   10.000000] [92mPinned task 52 to CPUs 1-1[0m
+[   10.000000] [92mWaked up task 52[0m
+[   10.021000] [92mPaused task 52[0m
+[   10.021000] [92mkthread_syncwake: waker_pid=53 wakee_pid=54[0m
+[   10.031000] [92mExiting driver sync_wakeup on Linux 6.14.0-sync_wakeup_fixed[0m
+[   10.031000] reboot: Restarting system
+[   10.031000] reboot: machine restart

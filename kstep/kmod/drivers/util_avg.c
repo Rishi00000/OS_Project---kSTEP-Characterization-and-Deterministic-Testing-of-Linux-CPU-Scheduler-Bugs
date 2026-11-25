@@ -5,21 +5,18 @@
 
 static struct task_struct *tasks[2];
 
-static void on_tick_begin(void);
-
 static void setup(void) {
-  kstep_on_tick_begin(on_tick_begin);
   for (int i = 0; i < ARRAY_SIZE(tasks); i++)
     tasks[i] = kstep_task_create();
 }
 
 static void run(void) {
   // set the first task to fifo
-  kstep_task_set_rt(tasks[0], SCHED_FIFO, 80);
+  kstep_task_fifo(tasks[0]);
   kstep_task_wakeup(tasks[0]);
 
   // fake the frequency of cpu 1 to 50% of the base frequency
-  kstep_freq_set(1, 512);
+  kstep_freq_set("1=512");
 
   // tick until the util_avg becomes 100%
   kstep_tick_repeat(600);
@@ -31,7 +28,7 @@ static void run(void) {
   kstep_tick_repeat(2);
 
   // wake up and set another task to fifo
-  kstep_task_set_rt(tasks[1], SCHED_FIFO, 80);
+  kstep_task_fifo(tasks[1]);
   kstep_task_wakeup(tasks[1]);
 
   // tick for another 600 ticks (600ms) to show the impact
@@ -48,4 +45,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "util_avg",
     .setup = setup,
     .run = run,
+    .on_tick_begin = on_tick_begin,
+    .step_interval_us = 1000,
 };

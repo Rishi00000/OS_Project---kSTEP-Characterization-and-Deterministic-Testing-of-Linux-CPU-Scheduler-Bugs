@@ -4,14 +4,11 @@
 
 static struct task_struct *rt;
 
-static void setup(void) {
-  kstep_on_tick_begin(kstep_output_curr_task);
-  rt = kstep_task_create();
-}
+static void setup(void) { rt = kstep_task_create(); }
 
 static void run(void) {
   kstep_sysctl_write("kernel.sched_rt_runtime_us", "%d", -1);
-  kstep_task_set_rt(rt, SCHED_FIFO, 80);
+  kstep_task_fifo(rt);
   kstep_task_wakeup(rt);
   kstep_sysctl_write("kernel.sched_rt_runtime_us", "%d", 950000);
   kstep_tick_repeat(1501);
@@ -21,4 +18,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "rt_runtime_toggle",
     .setup = setup,
     .run = run,
+    .on_tick_begin = kstep_output_curr_task,
+    .step_interval_us = 1000,
 };

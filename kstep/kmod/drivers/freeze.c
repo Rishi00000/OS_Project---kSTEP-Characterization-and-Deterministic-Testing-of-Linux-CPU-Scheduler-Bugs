@@ -5,7 +5,6 @@
 static struct task_struct *tasks[3];
 
 static void setup(void) {
-  kstep_on_tick_begin(kstep_output_curr_task);
   for (int i = 0; i < ARRAY_SIZE(tasks); i++)
     tasks[i] = kstep_task_create();
 }
@@ -34,4 +33,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "freeze",
     .setup = setup,
     .run = run,
+    .on_tick_begin = kstep_output_curr_task,
+    .step_interval_us = 100,
 };

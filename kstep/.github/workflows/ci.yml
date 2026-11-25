@@ -7,48 +7,27 @@ on:
   schedule:
     - cron: "0 0 * * 0" # Every week
 
-env:
-  PACKAGES_X86_64: qemu-system-x86 libelf-dev
-  PACKAGES_AARCH64: qemu-system-arm libelf-dev
-
 jobs:
   deps:
-    name: Deps (${{ matrix.arm && 'aarch64' || 'x86_64' }})
-    strategy:
-      matrix:
-        arm: [false, true]
-    runs-on: ${{ matrix.arm && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    name: Cache deps
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.cache.outputs.key }}
     steps:
       - uses: actions/checkout@v6
-
-      - name: Cache apt packages
-        uses: ./.github/actions/apt-deps
+      - name: Cache deps
+        id: cache
+        uses: ./.github/actions/cache-deps
         with:
-          packages: ${{ matrix.arm && env.PACKAGES_AARCH64 || env.PACKAGES_X86_64 }}
-
-      # target/ and the registry, shared with the test jobs (same key), saved only here
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: kstep
-      - name: Build Rust
-        run: cargo build --workspace --release --locked
-      - name: Format
-        run: cargo fmt --all --check
-      - name: Lint
-        run: cargo clippy --workspace --all-targets --release --locked -- -D warnings
-      - name: Test
-        run: cargo test --workspace --release --locked
+          packages: qemu-system-x86 libelf-dev musl-tools
 
   test:
     needs: deps
-    name: ${{ matrix.fuzz && 'Fuzz' || 'Run' }} ${{ matrix.version }} (${{ matrix.arm && 'aarch64' || 'x86_64' }})
+    name: ${{ matrix.fuzz && 'Fuzz' || 'Run' }} ${{ matrix.version }}
     strategy:
       matrix:
         include:
           - version: v7.0  # latest
-          - version: v7.0
-            arm: true
           - version: v6.18 # 2025 LTS
           - version: v6.12 # 2024 LTS
           - version: v6.6  # 2023 LTS
@@ -56,22 +35,14 @@ jobs:
           - version: v5.15 # 2021 LTS
           - version: v6.18
             fuzz: true
-    runs-on: ${{ matrix.arm && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: kstep
-          save-if: false
 
-      - name: Build kstep CLI
-        run: cargo build --release --locked -p kstep
-
-      - name: Install deps
-        uses: ./.github/actions/apt-deps
+      - name: Restore deps
+        uses: ./.github/actions/restore-deps
         with:
-          packages: ${{ matrix.arm && env.PACKAGES_AARCH64 || env.PACKAGES_X86_64 }}
-          install: true
+          key: ${{ needs.deps.outputs.key }}
 
       - name: Build Linux
         uses: ./.github/actions/build-linux
@@ -80,26 +51,35 @@ jobs:
           cov: ${{ matrix.fuzz }}
 
       - name: Build kSTEP
-        run: ./kstep.sh build ${{ matrix.version }}
+        run: make kstep KERNEL=${{ matrix.version }}
 
-      # GitHub's x86_64 runners have nested virtualisation, but /dev/kvm is root-only; the arm
-      # runners have no /dev/kvm, and QEMU falls back to TCG
-      - name: Enable KVM
-        run: '[ -e /dev/kvm ] && sudo chmod 666 /dev/kvm || true'
-
-      - name: "[Run] A cli session"
+      - name: "[Run] Execute driver"
         if: ${{ ! matrix.fuzz }}
-        timeout-minutes: 2
-        run: printf 'create 2\ntick 5\npolicy-rt 1 fifo 50\ntick 5\n' | ./kstep.sh run ${{ matrix.version }}
+        timeout-minutes: 1
+        run: ./run.py --kernel ${{ matrix.version }}
 
-      - name: "[Run] Show the driver's records"
+      - name: "[Run] Show driver output"
         if: ${{ ! matrix.fuzz }}
         run: cat results/latest/kstep.jsonl
 
-      - name: Show the kernel log
-        if: ${{ failure() }}
-        run: cat results/latest/kernel.log
-
-      - name: "[Fuzz] Build the fuzzer"
+      - name: "[Fuzz] Execute workers"
         if: ${{ matrix.fuzz }}
-        run: cargo build --release --locked -p kstep-fuzz
+        timeout-minutes: 5
+        run: |
+          ./fuzz.py \
+            --kernel ${{ matrix.version }} \
+            --workers 1 \
+            --steps 10 \
+            --ci_mode
+
+      - name: "[Fuzz] Show fresh-mode log"
+        if: ${{ matrix.fuzz }}
+        run: cat results/fuzz/fresh/worker.debug.log
+
+      - name: "[Fuzz] Show replay-mode log"
+        if: ${{ matrix.fuzz }}
+        run: cat results/fuzz/replay/worker.debug.log
+
+      - name: "[Fuzz] Show mutation-mode log"
+        if: ${{ matrix.fuzz }}
+        run: cat results/fuzz/mutation/worker.debug.log

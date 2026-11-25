@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from matplotlib.figure import Figure
 from utils import RESULTS_DIR
+from matplotlib.figure import Figure
 
 
 def save_fig(fig: Figure, name: Path | str) -> list[Path]:

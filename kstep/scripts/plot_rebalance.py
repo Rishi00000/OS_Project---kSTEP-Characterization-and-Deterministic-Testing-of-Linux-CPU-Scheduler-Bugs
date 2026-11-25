@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["matplotlib==3.10.7", "pandas==2.3.3"]
-# ///
+#!/usr/bin/env python3
 """
 Script to parse rebalance domain logs and plot overhead over time.
 """
@@ -12,11 +8,12 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from utils import ResultDir
+from parse_log import parse_jsonl
 from plot_utils import save_fig
-from utils import kstep_log, parse_jsonl
 
 
-def parse_log_file(path: Path, target_cpu: int):
+def parse_log_file(path: Path, target_cpu: int):    
     df = parse_jsonl(path, type="sched_softirq")
     df["lat_ms"] = df["lat_us"] / 1000.0
     df = df[df["cpu"] == target_cpu]
@@ -48,8 +45,8 @@ def plot_rebalance_comparison(buggy_df, fixed_df):
 
 def main(driver: str):
     target_cpu = 2
-    buggy_df = parse_log_file(kstep_log(f"repro_{driver}/buggy"), target_cpu)
-    fixed_df = parse_log_file(kstep_log(f"repro_{driver}/fixed"), target_cpu)
+    buggy_df = parse_log_file(ResultDir(f"repro_{driver}/buggy").output, target_cpu)
+    fixed_df = parse_log_file(ResultDir(f"repro_{driver}/fixed").output, target_cpu)
 
     fig = plot_rebalance_comparison(buggy_df, fixed_df)
     save_fig(fig, driver)

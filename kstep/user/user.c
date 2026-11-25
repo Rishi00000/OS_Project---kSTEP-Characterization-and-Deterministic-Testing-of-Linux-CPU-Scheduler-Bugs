@@ -1,20 +1,22 @@
 #define _GNU_SOURCE
 
 #include <errno.h>       // EEXIST
-#include <fcntl.h>       // open, O_RDONLY, O_RDWR
+#include <fcntl.h>       // open, O_RDONLY, O_RDWR, O_NOCTTY
 #include <limits.h>      // INT_MAX
 #include <sched.h>       // sched_setaffinity, cpu_set_t
 #include <signal.h>      // sigaction
 #include <stdio.h>       // fprintf
 #include <string.h>      // strcmp
 #include <sys/mount.h>   // mount
+#include <sys/prctl.h>   // PR_SET_NAME
 #include <sys/reboot.h>  // reboot
 #include <sys/stat.h>    // mkdir
-#include <time.h>        // nanosleep, struct timespec
 #include <sys/syscall.h> // SYS_*
-#include <unistd.h>      // close, getpid, syscall, read, pause, _exit
+#include <termios.h>     // termios, tcgetattr, tcsetattr
+#include <time.h>        // nanosleep, struct timespec
+#include <unistd.h>      // close, getpid, syscall, fork, pause, _exit
 
-#include "user.h" // KSTEP_CTRL_*, PIPE_PATH, KSTEP_CTRL_FD
+#include "user.h" // SIGCODE_*, TASK_READY_COMM
 
 #define panic(msg, ...)                                                        \
   do {                                                                         \
@@ -58,6 +60,23 @@ static void load_kmod(const char *path, int argc, char *argv[], char *envp[]) {
   close(fd);
 }
 
+// Disable output post-processing
+static void set_tty_raw_output(const char *path) {
+  int fd = open(path, O_RDWR | O_NOCTTY);
+  if (fd < 0)
+    panic("Failed to open %s", path);
+
+  struct termios termios;
+  if (tcgetattr(fd, &termios) < 0)
+    return;
+
+  cfmakeraw(&termios);
+  if (tcsetattr(fd, TCSANOW, &termios) < 0)
+    panic("Failed to tcsetattr %s", path);
+
+  close(fd);
+}
+
 static void set_proc_affinity(int begin, int end) { // [begin, end]
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
@@ -73,11 +92,10 @@ static int init_main(int argc, char *argv[], char *envp[]) {
   mount_fs("/proc", "proc");
   mount_fs("/sys", "sysfs");
   mount_fs("/sys/kernel/debug", "debugfs");
-  if (mkfifo(PIPE_PATH, 0600) < 0) // the tasks' wait/post semaphore (see user.h)
-    panic("Failed to create %s", PIPE_PATH);
   mount_fs("/sys/fs/cgroup", "cgroup2");
   set_proc_affinity(0, 0);          // Bind to cpu 0
-  // The kmod drives the JSON channel's virtio port itself (kmod/io.c); no tty to set up
+  set_tty_raw_output("/dev/ttyS2"); // For code coverage data
+  set_tty_raw_output("/dev/ttyS3"); // For interactive communication
   load_kmod("kmod.ko", argc, argv, envp);
   panic("Kernel module exited unexpectedly");
 }
@@ -86,56 +104,42 @@ static int init_main(int argc, char *argv[], char *envp[]) {
 // PROGRAM 2 — /task  (worker, spawned by kmod)
 // ============================================================================
 
-// The channel is the FIFO init created; a task opens it read-write on first use, so a read blocks
-// instead of hitting EOF and a write never sees EPIPE. Opened once and kept for the life of the
-// task, which _exit() closes. The sentinel is -1, not 0: 0 is a real descriptor, and on a zero
-// sentinel this would reopen on every call and leak one each time if it ever landed there.
-static int chan_fd(void) {
-  static int fd = -1;
-  if (fd < 0 && (fd = open(PIPE_PATH, O_RDWR)) < 0)
-    panic("Failed to open %s", PIPE_PATH);
-  return fd;
+static void handler(int signum, siginfo_t *info, void *context) {
+  int code = info->si_code;
+  int val = info->si_int;
+  if (code == SIGCODE_WAKEUP)
+    return;
+  else if (code == SIGCODE_FORK) {
+    for (int i = 0; i < val; i++) {
+      int pid = fork();
+      if (pid < 0)
+        panic("fork failed at i == %d", i);
+      if (pid == 0) // child process: stop forking further
+        return;
+    }
+  } else if (code == SIGCODE_EXIT)
+    _exit(0);
+  else if (code == SIGCODE_PAUSE)
+    pause();
+  else if (code == SIGCODE_BLOCK)
+    nanosleep(&(struct timespec){.tv_sec = INT_MAX}, NULL);
+  else
+    panic("Unknown signal code: %d", code);
 }
 
-// A wakeup is a bare SIGUSR1: it says nothing, and only returns the task from whatever it is
-// asleep in. The handler exists so the signal does not kill the task instead.
-static void handler(int signum) {}
+__attribute__((noreturn)) static void loop() {
+  while (1)
+    __asm__("" : : : "memory");
+}
 
-__attribute__((noreturn)) static int task_main(void) {
-  struct sigaction sa = {.sa_handler = handler};
-  char c;
-
+static int task_main(int argc, char **argv) {
+  struct sigaction sa = {.sa_sigaction = handler,
+                         .sa_flags = SA_SIGINFO | SA_NODEFER};
   sigaction(SIGUSR1, &sa, NULL);
-  // A read returns the next thing the controller wants done, or halts. The halt is the task's
-  // work, so a read that returns nothing has done it. The first read parks: a new task sleeps in
-  // it until its first wakeup.
-  while (1) {
-    if (read(KSTEP_CTRL_FD, &c, sizeof(c)) <= 0)
-      continue;
-    switch (c) {
-    case KSTEP_CTRL_EXIT:
-      _exit(0);
-    case KSTEP_CTRL_PAUSE:
-      pause(); // interruptible, not freezable: returns when a wakeup interrupts it
-      break;
-    case KSTEP_CTRL_BLOCK:
-      nanosleep(&(struct timespec){.tv_sec = INT_MAX}, NULL);
-      break;
-    case KSTEP_CTRL_CHAN_READ: {
-      char token;
-      read(chan_fd(), &token, 1); // sleeps in pipe_read() until there is a byte, and takes it
-      break;
-    }
-    case KSTEP_CTRL_CHAN_WRITE:
-      write(chan_fd(), "w", 1); // pipe_write() sync-wakes one reader, from this CPU
-      break;
-    case KSTEP_CTRL_YIELD:
-      sched_yield(); // stays runnable: the class decides who runs instead, if anyone
-      break;
-    default:
-      panic("Unknown control action: %d", c);
-    }
-  }
+  prctl(PR_SET_NAME, TASK_READY_COMM);
+
+  pause();
+  loop();
 }
 
 // ============================================================================
@@ -144,6 +148,6 @@ __attribute__((noreturn)) static int task_main(void) {
 
 int main(int argc, char **argv, char **envp) {
   if (argc > 0 && !strcmp(argv[0], "task"))
-    return task_main();
+    return task_main(argc, argv);
   return init_main(argc, argv, envp);
 }

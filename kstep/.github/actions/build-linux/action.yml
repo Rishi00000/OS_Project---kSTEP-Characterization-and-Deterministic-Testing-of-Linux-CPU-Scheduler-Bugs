@@ -19,12 +19,14 @@ runs:
           build/${{ inputs.version }}/kernel
           build/${{ inputs.version }}/vmlinux
           build/${{ inputs.version }}/linux
-        key: ${{ runner.arch }}-${{ inputs.version }}${{ inputs.cov == 'true' && '-cov' || '' }}-${{ hashFiles('linux/config.kstep*', 'linux/cov.c', 'linux/*.kstep') }}
+        key: ${{ inputs.version }}${{ inputs.cov == 'true' && '-cov' || '' }}-${{ hashFiles('linux/config.kstep*', 'linux/cov.c', 'linux/*.kstep') }}
 
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      # `make clean` drops the kbuild objects before caching; .config, Module.symvers and the generated headers survive it, which is all the kmod build needs
+      run: ./checkout.py ${{ inputs.version }} --tar
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
       run: |
-        ./kstep.sh checkout ${{ inputs.version }}
-        ./kstep.sh build ${{ inputs.version }} --linux ${{ inputs.cov == 'true' && '--config linux/config.kstep.cov' || '' }}
-        make -C build/${{ inputs.version }}/linux clean
+        make linux KSTEP_EXTRA_CONFIG=${{ inputs.cov == 'true' && 'linux/config.kstep.cov' || '' }}
+        make clean-all

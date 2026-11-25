@@ -6,7 +6,6 @@ static struct task_struct *starved_task;
 static struct task_struct *other_task;
 
 static void setup(void) {
-  kstep_on_tick_begin(kstep_output_curr_task);
   kstep_cgroup_create("g0");
   kstep_cgroup_create("g0/g1");
   kstep_cgroup_create("g0/g2");
@@ -22,8 +21,8 @@ static void setup(void) {
 }
 
 static void *ineligible_group_with_eligible_tasks(void) {
-  if (special_task->on_cpu &&
-      !kstep_eligible(special_task->se.parent) &&
+  if (special_task->on_cpu && 
+      !kstep_eligible(special_task->se.parent) && 
       !kstep_eligible(special_task->se.parent->parent) &&
       kstep_eligible(&special_task->se))
     return special_task;
@@ -57,4 +56,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "vruntime_overflow",
     .setup = setup,
     .run = run,
+    .on_tick_begin = kstep_output_curr_task,
+    .step_interval_us = 1000,
 };

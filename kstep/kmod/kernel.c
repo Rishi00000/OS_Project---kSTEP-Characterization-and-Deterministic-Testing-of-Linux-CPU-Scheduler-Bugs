@@ -1,4 +1,3 @@
-#include <linux/task_work.h>
 #include <linux/cpumask.h>
 #include <linux/cgroup.h>
 #include <linux/dcache.h>
@@ -18,32 +17,21 @@
 #define MAX_PATH_LENGTH 512
 #define MAX_DATA_LENGTH 512
 
-int kstep_write(const char *path, const char *buf, size_t size) {
+void kstep_write(const char *path, const char *buf, size_t size) {
   TRACE_INFO("Writing %s: %s", path, buf);
   struct file *file = filp_open(path, O_WRONLY, 0);
-  if (IS_ERR(file)) {
-    TRACE_INFO("open %s failed: %ld", path, PTR_ERR(file));
-    return PTR_ERR(file);
-  }
+  if (IS_ERR(file))
+    panic("open %s failed: %ld", path, PTR_ERR(file));
 
   loff_t pos = 0;
   ssize_t ret = kernel_write(file, buf, size, &pos);
+  if (ret < 0)
+    panic("write %s failed with return value %ld", path, ret);
+
   filp_close(file, NULL);
-  // filp_close() only queues the release: fput() adds it to this task's task_work, which the
-  // kernel runs on the way back to user mode. kSTEP's controller never goes back -- it is the
-  // module init, looping inside finit_module for the whole session -- so without this every
-  // write leaks its struct file.
-  KSYM_IMPORT(task_work_run);
-  if (KSYM_task_work_run)
-    KSYM_task_work_run();
-  if (ret < 0) {
-    TRACE_INFO("write %s failed: %ld", path, ret);
-    return ret;
-  }
-  return 0;
 }
 
-int kstep_mkdir(const char *dir) {
+void kstep_mkdir(const char *dir) {
   struct path path;
   int flags = LOOKUP_DIRECTORY;
 
@@ -54,10 +42,8 @@ int kstep_mkdir(const char *dir) {
   struct dentry *dentry = kern_path_create(AT_FDCWD, dir, &path, flags);
 #endif
 
-  if (IS_ERR(dentry)) {
-    TRACE_INFO("kern_path_create %s failed: %ld", dir, PTR_ERR(dentry));
-    return PTR_ERR(dentry);
-  }
+  if (IS_ERR(dentry))
+    panic("kern_path_create %s failed: %ld", dir, PTR_ERR(dentry));
 
   struct inode *inode = d_inode(path.dentry);
 
@@ -79,6 +65,9 @@ int kstep_mkdir(const char *dir) {
   int err = vfs_mkdir(inode, dentry, 0755);
 #endif
 
+  if (err)
+    panic("mkdir %s failed: %d", dir, err);
+
 // https://github.com/torvalds/linux/commit/3d18f80ce181ba27f37d0ec1c550b22acb01dd49
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
   end_creating_path(&path, dentry);
@@ -86,12 +75,7 @@ int kstep_mkdir(const char *dir) {
   done_path_create(&path, dentry);
 #endif
 
-  if (err) {
-    TRACE_INFO("mkdir %s failed: %d", dir, err);
-    return err;
-  }
   TRACE_INFO("Created directory %s", dir);
-  return 0;
 }
 
 void kstep_sysctl_write(const char *name, const char *fmt, ...) {
@@ -187,14 +171,16 @@ void kstep_sched_feat_write(const char *fmt, ...) {
 
 void kstep_sched_feat_enable(const char *name) {
   kstep_sched_feat_write("%s", name);
+  kstep_sleep();
 }
 
 void kstep_sched_feat_disable(const char *name) {
   kstep_sched_feat_write("NO_%s", name);
+  kstep_sleep();
 }
 
-int kstep_cgroup_write(const char *name, const char *filename, const char *fmt,
-                       ...) {
+void kstep_cgroup_write(const char *name, const char *filename, const char *fmt,
+                        ...) {
   char data[MAX_DATA_LENGTH] = {0};
   char path[MAX_PATH_LENGTH] = {0};
 
@@ -211,7 +197,15 @@ int kstep_cgroup_write(const char *name, const char *filename, const char *fmt,
   if (ret <= 0 || ret >= sizeof(path))
     panic("failed to form cgroup file path for %s", filename);
 
-  return kstep_write(path, data, size);
+  kstep_write(path, data, size);
+}
+
+static void kstep_cgroup_mkdir(const char *name) {
+  char path[MAX_PATH_LENGTH] = {0};
+  int ret = scnprintf(path, sizeof(path), CGROUP_ROOT "%s", name);
+  if (ret <= 0 || ret >= sizeof(path))
+    panic("failed to form cgroup file path for %s", name);
+  kstep_mkdir(path);
 }
 
 static void kstep_rmdir(const char *dir) {
@@ -267,41 +261,20 @@ void kstep_cgroup_init(void) {
     KSYM_rcu_sync_enter(&cpuset_rwsem->rss);
 }
 
-bool kstep_cgroup_exists(const char *name) {
-  char path[MAX_PATH_LENGTH];
-  struct path p;
-
-  if (scnprintf(path, sizeof(path), CGROUP_ROOT "%s", name) >= sizeof(path))
-    return false;
-  if (kern_path(path, LOOKUP_DIRECTORY, &p))
-    return false;
-  path_put(&p);
-  return true;
-}
-
-int kstep_cgroup_create(const char *name) {
+void kstep_cgroup_create(const char *name) {
   char cpuset[32];
-  char path[MAX_PATH_LENGTH];
-  int err;
-
-  if (scnprintf(cpuset, sizeof(cpuset), "%d-%d", 1, kstep_test_ncpus) >= sizeof(cpuset) ||
-      scnprintf(path, sizeof(path), CGROUP_ROOT "%s", name) >= sizeof(path))
+  kstep_cgroup_mkdir(name);
+  kstep_cgroup_write(name, "cgroup.subtree_control", CGROUP_CONTROL);
+  if (scnprintf(cpuset, sizeof(cpuset), "%d-%d", 1, num_online_cpus() - 1) >= sizeof(cpuset))
     panic("failed to form cpuset for %s", name);
 
-  err = kstep_mkdir(path);
-  if (err)
-    return err;
-  err = kstep_cgroup_write(name, "cgroup.subtree_control", CGROUP_CONTROL) ?:
-        kstep_cgroup_set_cpuset(name, cpuset);
-  if (err) // leave no half-configured cgroup behind
-    kstep_rmdir(path);
-  return err;
+  kstep_cgroup_set_cpuset(name, cpuset);
 }
 
 void kstep_cgroup_destroy(const char *name) {
   char path[MAX_PATH_LENGTH] = {0};
   struct cgroup *cgrp;
-  struct cgroup_subsys_state *css;
+  struct cgroup_subsys_state *css = NULL;
   struct task_group *tg = NULL;
   typedef void(unregister_fair_sched_group_type)(struct task_group *tg);
   KSYM_IMPORT_TYPED(unregister_fair_sched_group_type,
@@ -321,88 +294,69 @@ void kstep_cgroup_destroy(const char *name) {
   rcu_read_lock();
   css = rcu_dereference(cgrp->subsys[cpu_cgrp_id]);
   if (css)
-// css_tg() is private to core.c before 6.12, when sched_ext moved it into sched.h
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
     tg = css_tg(css);
 #else
-    tg = container_of(css, struct task_group, css);
+    tg = css ? container_of(css, struct task_group, css) : NULL;
 #endif
   rcu_read_unlock();
 
   kstep_rmdir(path);
+  kstep_sleep();
 
   if (tg)
     KSYM_unregister_fair_sched_group(tg);
 
   cgroup_put(cgrp);
+  kstep_sleep();
 }
 
-int kstep_cgroup_set_cpuset(const char *name, const char *cpuset) {
-  return kstep_cgroup_write(name, "cpuset.cpus", "%s", cpuset);
+void kstep_cgroup_set_cpuset(const char *name, const char *cpuset) {
+  kstep_cgroup_write(name, "cpuset.cpus", "%s", cpuset);
+  kstep_sleep();
 }
 
-int kstep_cgroup_set_weight(const char *name, int weight) {
-  return kstep_cgroup_write(name, "cpu.weight", "%d", weight);
+void kstep_cgroup_set_weight(const char *name, int weight) {
+  kstep_cgroup_write(name, "cpu.weight", "%d", weight);
+  kstep_sleep();
 }
 
-int kstep_cgroup_move_task(const char *name, int pid) {
-  return kstep_cgroup_write(name, "cgroup.procs", "%d", pid);
+void kstep_cgroup_move_task(const char *name, int pid) {
+  kstep_cgroup_write(name, "cgroup.procs", "%d", pid);
+  kstep_sleep();
 }
 
-bool kstep_task_is_frozen(struct task_struct *p) {
-// https://github.com/torvalds/linux/commit/f5d39b020809146cc28e6e73369bf8065e0310aa
+void kstep_freeze_task(struct task_struct *p) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
-  return READ_ONCE(p->__state) & TASK_FROZEN;
-#else
-  return READ_ONCE(p->flags) & PF_FROZEN;
-#endif
-}
+  if (READ_ONCE(p->__state) & TASK_FROZEN) {
+# else
+  if (READ_ONCE(p->flags) & PF_FROZEN) {
+# endif
+    TRACE_INFO("Task %d already frozen", p->pid);
+    return;
+  }
 
-// Between start and stop, freeze_task() freezes sleepers at once and running tasks freeze when
-// they next return to user space.
-static void kstep_freezer_start(void) {
-  KSYM_IMPORT(pm_freezing);
+// https://github.com/torvalds/linux/commit/f5d39b020809146cc28e6e73369bf8065e0310aa
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
   static_branch_inc(&freezer_active);
 #else
   atomic_inc(&system_freezing_cnt);
 #endif
-  *KSYM_pm_freezing = true;
-}
 
-static void kstep_freezer_stop(void) {
   KSYM_IMPORT(pm_freezing);
+  KSYM_IMPORT(freeze_task);
+
+  *KSYM_pm_freezing = true;
+
+  TRACE_INFO("Freezing task %d", p->pid);
+  KSYM_freeze_task(p);
+
   *KSYM_pm_freezing = false;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
   static_branch_dec(&freezer_active);
 #else
   atomic_dec(&system_freezing_cnt);
 #endif
-}
-
-bool kstep_freezer_active(void) {
-  KSYM_IMPORT(pm_freezing);
-  return *KSYM_pm_freezing;
-}
-
-void kstep_freeze_task(struct task_struct *p) {
-  bool active = kstep_freezer_active(); // under a system-wide freeze, leave the freezer's state alone
-
-  if (kstep_task_is_frozen(p)) {
-    TRACE_INFO("Task %d already frozen", p->pid);
-    return;
-  }
-
-  KSYM_IMPORT(freeze_task);
-
-  if (!active)
-    kstep_freezer_start();
-  TRACE_INFO("Freezing task %d", p->pid);
-  unsigned int state_before = READ_ONCE(p->__state); // what freeze_task() is about to see
-  KSYM_freeze_task(p);
-  kstep_emit(freeze, kstep_freeze_fn, p, state_before);
-  if (!active)
-    kstep_freezer_stop();
 }
 
 void kstep_thaw_task(struct task_struct *p) {
@@ -420,22 +374,4 @@ int kstep_eligible(struct sched_entity *se) {
 #else
   panic("unsupported kernel");
 #endif
-}
-
-// Report balancing from a busy CPU while a CPU in its local group is idle.
-// Shared by the extra_balance reproducer and the fuzzer's balance callback.
-void kstep_check_extra_balance(int cpu, struct sched_domain *sd) {
-  struct sched_group *sg = sd->groups;
-  int i;
-
-  kstep_output_balance(cpu, sd);
-  if (cpu_rq(cpu)->nr_running == 0 ||
-      !cpumask_test_cpu(cpu, sched_group_span(sg)))
-    return;
-  for_each_cpu(i, sched_group_span(sg)) {
-    if (cpu_rq(i)->nr_running == 0) {
-      pr_info("warn: load balance triggered on busy cpu while idle cpu in the same group");
-      return;
-    }
-  }
 }

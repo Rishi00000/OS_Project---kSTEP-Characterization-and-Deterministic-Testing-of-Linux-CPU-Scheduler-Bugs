@@ -2,7 +2,7 @@
 
 void kstep_disable_workqueue(void) {
   KSYM_IMPORT_TYPED(void, workqueue_offline_cpu);
-  for_each_test_cpu(cpu) {
+  for (int cpu = 1; cpu < num_online_cpus(); cpu++) {
     work_on_cpu(cpu, KSYM_workqueue_offline_cpu, (void *)(uintptr_t)cpu);
     TRACE_INFO("Disabled workqueue on CPU %d", cpu);
   }
@@ -60,7 +60,8 @@ void kstep_move_kthreads(void) {
   struct task_struct *p;
   for_each_process(p) {
     // Skip if 0 is the only allowed cpu
-    if (cpumask_equal(&p->cpus_mask, cpumask_of(0))) {
+    if (cpumask_test_cpu(0, &p->cpus_mask) &&
+        cpumask_weight(&p->cpus_mask) == 1) {
       continue;
     }
     // skip non-kthreads and sys kthreads

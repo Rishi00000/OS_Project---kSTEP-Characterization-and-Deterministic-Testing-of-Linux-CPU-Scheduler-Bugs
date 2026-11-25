@@ -25,10 +25,7 @@ static void set_task_uclamp(struct task_struct *p, unsigned int min,
     panic("sched_setattr_nocheck failed: %d", ret);
 }
 
-static void on_tick_begin(void);
-
 static void setup(void) {
-  kstep_on_tick_begin(on_tick_begin);
   task = kstep_task_create();
 
   kstep_cgroup_create("uclamp");
@@ -78,4 +75,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "uclamp_inversion",
     .setup = setup,
     .run = run,
+    .on_tick_begin = on_tick_begin,
+    .step_interval_us = 1000,
 };

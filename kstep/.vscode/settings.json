@@ -9,13 +9,6 @@
         "**/linux/config.*": "makefile",
     },
     "search.exclude": {
-        "build": true,
+        "kmod/build": true,
     },
-    "python.analysis.exclude": [
-        "**/node_modules",
-        "**/.*",
-        "**/.venv",
-        "**/__pycache__",
-        "**/build"
-    ],
 }

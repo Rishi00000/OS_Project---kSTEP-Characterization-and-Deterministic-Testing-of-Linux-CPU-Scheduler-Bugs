@@ -50,5 +50,6 @@ KSTEP_DRIVER_DEFINE{
     .name = "slice_update",
     .setup = setup,
     .run = run,
+    .step_interval_us = 1000,
 };
 #endif

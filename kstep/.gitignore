@@ -3,10 +3,3 @@ __pycache__
 
 # clangd
 .cache
-
-# Build artifacts
-/build/
-/fuzz
-
-# Rust
-/target

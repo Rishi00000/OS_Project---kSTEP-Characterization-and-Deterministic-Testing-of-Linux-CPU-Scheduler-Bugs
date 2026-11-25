@@ -3,6 +3,7 @@
 #include <linux/sched/signal.h>
 
 #include "driver.h"
+#include "internal.h"
 
 #define NUM_TASKS 20000
 
@@ -26,24 +27,25 @@ static void on_sched_softirq_end(void) {
              smp_processor_id(), lat_ns / 1000, lat_ns % 1000);
 }
 
-// All on CPU 1: the point is one runqueue long enough that walking it in the balancer's
-// softirq takes measurable time. Only the queue length matters, so they are plain runnable
-// tasks and the driver never addresses them individually. Created here rather than in run()
-// because each create waits for its task to reach its first read, which needs the real timer
-// that kstep_tick_init() turns off between setup() and run() (see main.c).
-static void setup(void) {
-  kstep_on_softirq_begin(on_sched_softirq_begin);
-  kstep_on_softirq_end(on_sched_softirq_end);
+static struct task_struct *busy_task;
 
-  for (int i = 0; i < NUM_TASKS; i++) {
-    struct task_struct *p = kstep_task_create();
+static void setup(void) { busy_task = kstep_task_create(); }
 
-    kstep_task_set_affinity(p, "1");
-    kstep_task_wakeup(p);
+static void *fork_finished(void) {
+  struct task_struct *p;
+  int nr_running = 0;
+  for_each_process(p) {
+    if (task_cpu(p) == task_cpu(busy_task) && p->parent == busy_task)
+      nr_running++;
   }
+  return nr_running >= NUM_TASKS ? (void *)true : (void *)false;
 }
 
 static void run(void) {
+  kstep_task_pin(busy_task, 1, 1);
+  kstep_task_wakeup(busy_task);
+  kstep_task_fork(busy_task, NUM_TASKS);
+  kstep_sleep_until(fork_finished);
   kstep_tick_repeat(2000);
 }
 
@@ -51,4 +53,7 @@ KSTEP_DRIVER_DEFINE{
     .name = "long_balance",
     .setup = setup,
     .run = run,
+    .on_sched_softirq_begin = on_sched_softirq_begin,
+    .on_sched_softirq_end = on_sched_softirq_end,
+    .step_interval_us = 1000,
 };

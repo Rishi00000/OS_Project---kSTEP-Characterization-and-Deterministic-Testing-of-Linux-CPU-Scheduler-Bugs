@@ -15,25 +15,10 @@
 
 #include "driver.h"
 
-#define KSTEP_NR_CPUS (32)
-
-// The test CPUs: every online CPU but 0, which is kstep's controller and runs no session task.
-// The test CPUs, 1..kstep_test_ncpus: where tasks run and what the scheduler's domains, the ticks
-// and the statistics span. All of 1..N-1 from boot, so everything set up before the driver runs
-// covers the whole machine; a cpu-topo spec's CPUS=K then narrows it, and the CPUs left over sit
-// idle, alone at every topology level like CPU 0, with nothing sent their way.
-extern int kstep_test_ncpus;
-void kstep_cpu_init(void);
-#define for_each_test_cpu(cpu) for (int cpu = 1, _ncpus = kstep_test_ncpus; cpu <= _ncpus; cpu++)
-
-// cpu.c
-bool kstep_parse_cpus(const char *list, struct cpumask *mask); // a nonempty cpulist of test CPUs
+#define INIT_TIME_NS (10ULL * 1000ULL * 1000ULL * 1000ULL) // 10s
 
 // main.c
 extern struct kstep_driver *kstep_driver;
-
-// kernel.c
-bool kstep_freezer_active(void); // the system-wide freezer, which kstep_freeze_task runs itself
 
 // tick.c
 void kstep_tick_init(void);
@@ -48,17 +33,13 @@ void kstep_jiffies_init(void);
 void kstep_jiffies_tick(void);
 u64 kstep_jiffies_get(void);
 
-// shm.c: the region of guest memory the host reads directly (shm.h)
-phys_addr_t kstep_shm_init(void);
-void kstep_shm_update(struct task_struct **tasks, int ntasks);
-
-// io.c
-void kstep_io_init(void);
-void kstep_io_write(const char *data, size_t len);
-void kstep_io_readline(char *line, size_t max);
+// output.c
+void kstep_output_init(void);
 
 // trace.c
-void kstep_trace_init(void); // hook init_tg_cfs_entry, and what the driver's callbacks need
+void kstep_trace_sched_balance_begin(void);
+void kstep_trace_sched_balance_selected(void);
+void kstep_trace_sched_group_alloc(void);
 
 // reset.c
 void kstep_reset_runqueues(void);
@@ -74,15 +55,18 @@ void kstep_prealloc_kworkers(void);
 
 // task.c
 void kstep_task_init(void);
-bool kstep_task_settled(struct task_struct *p); // in the halt of the control file's read, nothing pending
 
 // kernel.c
 void kstep_cgroup_init(void);
 
-// cov.c: the edge map over kernel/sched (kernels built with linux/config.kstep.cov; a no-op otherwise)
-phys_addr_t kstep_cov_init(void);
-// Bracket a scheduler call the controller makes on a task's behalf: CPU 0 is recorded while on.
-void kstep_cov_controller(bool on);
+// cov.c
+void kstep_cov_init(void);
+void kstep_cov_enable(void);
+void kstep_cov_enable_controller(void);
+void kstep_cov_disable_controller(void);
+void kstep_cov_disable(void);
+void kstep_cov_dump(void);
+void kstep_cov_cmd_id_inc(void);
 
 // sym.c
 struct kstep_driver *kstep_sym_init(const char *driver_name);

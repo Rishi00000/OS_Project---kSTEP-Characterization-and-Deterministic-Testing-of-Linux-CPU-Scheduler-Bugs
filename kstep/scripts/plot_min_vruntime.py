@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["matplotlib==3.10.7", "pandas==2.3.3"]
-# ///
+#!/usr/bin/env python3
 """
 Plot min_vruntime and avg_vruntime for CPU 2 over time from log files
 """
@@ -10,8 +6,9 @@ Plot min_vruntime and avg_vruntime for CPU 2 over time from log files
 import argparse
 
 import matplotlib.pyplot as plt
+from utils import ResultDir
+from parse_log import parse_jsonl
 from plot_utils import save_fig
-from utils import kstep_log, parse_jsonl
 
 
 def plot_min_vruntime(buggy_df, fixed_df):
@@ -59,8 +56,8 @@ def plot_min_vruntime(buggy_df, fixed_df):
 
 
 def main(driver: str):
-    buggy_df = parse_jsonl(kstep_log(f"repro_{driver}/buggy"), "min_vruntime")
-    fixed_df = parse_jsonl(kstep_log(f"repro_{driver}/fixed"), "min_vruntime")
+    buggy_df = parse_jsonl(ResultDir(f"repro_{driver}/buggy").output, "min_vruntime")
+    fixed_df = parse_jsonl(ResultDir(f"repro_{driver}/fixed").output, "min_vruntime")
 
     fig = plot_min_vruntime(buggy_df, fixed_df)
     save_fig(fig, driver)
